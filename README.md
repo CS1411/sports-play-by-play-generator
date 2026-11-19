@@ -14,7 +14,7 @@ This Sports Play-by-Play Generator is a command-line assistant for sports fans. 
 
 Tick these off as you go, and commit after each one.
 
-- [ ] **1. Gather a small corpus of sports commentary or news articles.**  
+- [x] **1. Gather a small corpus of sports commentary or news articles.**  
       Hint: Use text processing techniques to prepare your data.
 - [ ] **2. Implement the byte-pair tokenizer and create embeddings from the sports text.**  
       Hint: Apply the byte-pair encoding and embedding layer concepts.
