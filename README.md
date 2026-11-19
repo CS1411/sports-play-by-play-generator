@@ -20,17 +20,19 @@ This is a ~1M-parameter model trained for 15 minutes, so it learns the *style* o
 - [Quick start](#quick-start)
 - [Usage](#usage)
 - [How it works](#how-it-works)
+- [Milestones](#milestones)
 - [Data](#data)
 - [Results](#results)
 - [Reproduce it](#reproduce-it)
 - [Project structure](#project-structure)
 - [Testing](#testing)
 - [Limitations](#limitations)
+- [Honest development notes](#honest-development-notes)
 - [License and attribution](#license-and-attribution)
 
 ## Quick start
 
-Requires Python 3.12 and git. The trained model (4.6 MB) is in the repo, so there is nothing to download or train first.
+Requires Python 3.11 or newer and git (checked on Python 3.11.9 locally and 3.12 in CI). The trained model (4.6 MB) is in the repo, so there is nothing to download or train first.
 
 ```bash
 git clone https://github.com/CS1411/sports-play-by-play-generator.git
@@ -85,6 +87,19 @@ Some details worth knowing:
 - **Causal self-attention** scores each token's query against every key, divides by the square root of the head size, sets the scores of later positions to minus infinity so a token cannot see the future, and takes a softmax-weighted sum of values. A test checks that changing a later token never changes earlier predictions.
 - **Weight tying**: the output layer shares its weights with the token embedding table.
 
+## Milestones
+
+Each box is ticked because the milestone was run and checked, not because the code exists. The checks were last run on 19 November 2026 in a fresh virtual environment built from `requirements.txt` (Python 3.11.9, torch 2.15.0+cpu).
+
+- [x] **1. Gather a small corpus of sports news.** `app/corpus.py`; 2,227 Wikinews articles in `corpus/`; tested in `tests/test_corpus.py`.
+- [x] **2. Byte-pair tokenizer and embeddings.** `app/bpe.py`, `app/embeddings.py`; 3.08 characters per token and an exact round trip on the whole corpus; tested in `tests/test_bpe.py`.
+- [x] **3. Causal self-attention and the transformer block.** `app/model.py`; a test shows that changing a later token never changes earlier predictions; tested in `tests/test_model.py`.
+- [x] **4. Train the GPT on the sports text.** `app/train.py`; the saved model scores a held-out loss of 4.065 (perplexity 58.3) when re-measured over the whole validation split; tested in `tests/test_train.py`.
+- [x] **5. Text generation with a sampling strategy.** `app/generate.py`; temperature, top-k and top-p; examples in `docs/samples.md`; tested in `tests/test_generate.py`.
+- [x] **6. A command line for prompts.** `app/cli.py`; `hello`, `generate` and `play` were run against the saved model; tested in `tests/test_cli.py`.
+
+All 38 tests pass (`pytest`, about 10 seconds).
+
 ## Data
 
 The corpus is **2,227 real sports news articles from [Wikinews](https://en.wikinews.org)** (category *Sports*), 4.2 million characters, licensed CC BY 2.5. It is committed as `corpus/sports_news.txt`, and `corpus/SOURCES.tsv` lists every article with its URL.
@@ -99,12 +114,12 @@ Preparation (`app/corpus.py`): fetch each article's wikitext through the public 
 | Corpus in tokens | 1,377,928 tokens (1,240,135 train, 137,793 validation) |
 | Model | 1,071,872 parameters: 4 layers, 4 heads, 128-d embeddings, context of 128 tokens |
 | Training | 2,500 steps of 32 sequences, about 15 minutes on a CPU (`docs/training_log.txt`) |
-| Loss | **4.06 on held-out text, a perplexity of 58**, against 7.63 (perplexity 2,048) for random guessing |
+| Loss | **4.065 on held-out text, a perplexity of 58.3**, against 7.625 (perplexity 2,048) for random guessing. Measured over the whole validation split with the saved model; the training log's 4.062 is an estimate from 20 random batches |
 | Memorisation | About 1% of generated 8-token runs appear word for word in the corpus (`docs/samples.md`) |
 
 ![Training and validation loss](docs/loss_curve.svg)
 
-Perplexity can be read as how many tokens the model is torn between at each step, so the trained model is choosing among about 58 likely tokens instead of 2,048. Training loss ends at 3.47 against 4.06 for validation, so it has started to fit the training articles; more data, not more steps, is what would help.
+Perplexity can be read as how many tokens the model is torn between at each step, so the trained model is choosing among about 58 likely tokens instead of 2,048. Over a full pass, training loss is 3.473 (perplexity 32.2) against 4.065 for validation, so the model has started to fit the training articles; more data, not more steps, is what would help.
 
 Sampling matters a lot. [`docs/samples.md`](docs/samples.md) shows five prompts under three settings:
 
@@ -146,7 +161,7 @@ tests/            one test file per milestone, plus a smoke test
 pytest
 ```
 
-38 tests, all offline. They cover the corpus cleaning and the committed corpus, the tokenizer (round trips on text it never saw, special tokens, determinism), the embeddings, the attention mask (a later token never changes earlier outputs), the model, training on a tiny text (the loss falls far below random guessing), the sampling filters, and the command line. They run on GitHub for every push.
+38 tests, all offline (38 passed in 10 seconds in a clean environment). They cover the corpus cleaning and the committed corpus, the tokenizer (round trips on text it never saw, special tokens, determinism), the embeddings, the attention mask (a later token never changes earlier outputs), the model, training on a tiny text (the loss falls far below random guessing), the sampling filters, and the command line. They run on GitHub for every push.
 
 ## Limitations
 
@@ -156,6 +171,13 @@ pytest
 - **News style only.** Wikinews skews to certain years, sports and countries, and the text is plain ASCII, so accents and non-English names are simplified.
 - **No automatic quality check.** Quality was judged from held-out loss and the saved samples. There is no metric for coherence or how engaging the commentary is.
 - **Not built:** a "mood" option, and an experiment varying the corpus size.
+
+## Honest development notes
+
+- **Built with AI assistance.** This project, including the code, the tests, the corpus pipeline and this README, was built with Claude (Anthropic's AI assistant) in a single working session, with the repository owner choosing the topic and directing the work. It is not hand-written code.
+- **The commit timeline does not reflect days of work.** The milestone commits were made together after the code was finished (all within roughly twenty minutes on 19 November 2026), by applying finished versions of the project one stage at a time. The dates show when the files were committed, not how long each milestone took to build.
+- **Two commits are a mistake, not a feature.** While the history was being assembled, an interrupted script committed a Milestone 2 snapshot after the later milestones, which removed their files (commit `8640e04`), and that was undone with a revert (`aa6396c`). Milestones 3 to 6, the README and the licence were then committed again in order. The history was not rewritten, and apart from this README, which has since been revised, the files are identical to the last complete version before the mistake (`99c9914`).
+- **What was actually verified.** The numbers in this README were re-measured from the saved model and the committed corpus in a clean environment, not copied from earlier notes.
 
 ## License and attribution
 
